@@ -2,6 +2,7 @@ package is.yarr.rdf.command;
 
 import is.yarr.rdf.RITDriveFiller;
 import is.yarr.rdf.filler.FileFiller;
+import is.yarr.rdf.filler.RandomFiller;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
@@ -17,8 +18,11 @@ public class CommandHandler implements Runnable {
     private static final Logger LOGGER = LoggerFactory.getLogger(CommandHandler.class);
     private final RITDriveFiller driveFiller;
 
-    @Option(names = {"-f", "--file"}, description = "The file to upload", required = true)
+    @Option(names = {"-f", "--file"}, description = "The file to upload")
     String data;
+
+    @Option(names = {"-r", "--rname"}, description = "Random name", defaultValue = "false")
+    boolean randomName;
 
     @Option(names = {"-p", "--parent"}, description = "The ID of the parent folder of the filled content", required = true)
     String parentId;
@@ -28,6 +32,13 @@ public class CommandHandler implements Runnable {
 
     @Option(names = {"-d", "--delay"}, description = "The delay in ms between each fill", defaultValue = "500")
     long delay;
+
+    // Optimal width/height is 2000, 2000
+    @Option(names = {"-w", "--width"}, description = "The width of a random image")
+    int width;
+
+    @Option(names = {"-y", "--height"}, description = "The height of a random image")
+    int height;
 
     public CommandHandler(RITDriveFiller driveFiller) {
         this.driveFiller = driveFiller;
@@ -49,6 +60,11 @@ public class CommandHandler implements Runnable {
             return;
         }
 
+        if ((width > 0 && height == 0) || (width == 0 && height > 0)) {
+            LOGGER.error("If either --width or --height are above 0, the other must be as well.");
+            return;
+        }
+
         try {
             var parentFile = drive.files().get(parentId).execute();
 
@@ -59,7 +75,10 @@ public class CommandHandler implements Runnable {
                     return;
                 }
 
-                var filler = new FileFiller(services, parentFile, dataPath);
+                var filler = new FileFiller(parentFile, services, dataPath, randomName);
+                filler.fillIncrementally(count, delay);
+            } else if (width != 0) {
+                var filler = new RandomFiller(parentFile, services, width, height);
                 filler.fillIncrementally(count, delay);
             }
 

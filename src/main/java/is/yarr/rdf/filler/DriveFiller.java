@@ -1,14 +1,21 @@
 package is.yarr.rdf.filler;
 
+import com.google.api.client.http.ByteArrayContent;
 import com.google.api.services.drive.model.File;
 import is.yarr.rdf.auth.GoogleServices;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.util.Collections;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public abstract class DriveFiller {
 
@@ -89,6 +96,45 @@ public abstract class DriveFiller {
         } catch (InterruptedException e) {} finally {
             activeTask.cancel(true);
         }
+    }
+
+    /**
+     * Uploads binary data to Google Drive, using the provided parent ID.
+     *
+     * @param name The name of the file
+     * @param mimeType The real MIME type of the file
+     * @param bytes The byte content of the file
+     * @return The ID of the file
+     * @throws IOException If an exception occurs
+     */
+    String uploadData(String name, String mimeType, byte[] bytes) throws IOException {
+        var drive = services.getDrive();
+
+        var content = new ByteArrayContent(mimeType, bytes);
+        var request = drive.files().create(new File()
+                .setName(name)
+                .setParents(Collections.singletonList(parentFile.getId())),
+                content).setFields("id");
+
+        request.getMediaHttpUploader()
+                .setDirectUploadEnabled(false)
+                .setChunkSize(100 * 0x100000); // 100MB (Default 10)
+
+        return request.execute().getId();
+    }
+
+    /**
+     * Generates a random alphanumeric name (_ and - permitted as well) with a given length.
+     *
+     * @param length The length of the name
+     * @return The name
+     */
+    String generateName(int length) {
+        var values = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-";
+        return IntStream.range(0, length)
+                .mapToObj($ -> values.charAt(ThreadLocalRandom.current().nextInt(0, values.length() - 1)))
+                .map(String::valueOf)
+                .collect(Collectors.joining());
     }
 
     /**
