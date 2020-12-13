@@ -193,9 +193,13 @@ public abstract class DriveFiller {
      *
      * @return If the fill was successful. If false, any multiple fill method should stop.
      */
-    abstract boolean fill();
+    public abstract boolean fill();
 
     public GoogleServices getServices() {
         return services;
+    }
+
+    public RateLimitTester getRateLimitTester() {
+        return rateLimitTester;
     }
 }

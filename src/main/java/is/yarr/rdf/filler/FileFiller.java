@@ -43,7 +43,7 @@ public class FileFiller extends DriveFiller {
     }
 
     @Override
-    boolean fill() {
+    public boolean fill() {
         try {
             var name = randomName ? generateName(12) : dataPath.toFile().getName();
             var start = System.currentTimeMillis();

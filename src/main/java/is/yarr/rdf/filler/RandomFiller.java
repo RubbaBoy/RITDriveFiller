@@ -34,11 +34,10 @@ public class RandomFiller extends DriveFiller {
     }
 
     @Override
-    boolean fill() {
+    public boolean fill() {
         var name = generateName(10);
 
         try {
-
             var image = generateRandomBytes(width, height);
 
             var start = System.currentTimeMillis();

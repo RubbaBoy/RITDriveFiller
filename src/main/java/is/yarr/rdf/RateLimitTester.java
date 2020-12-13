@@ -23,6 +23,7 @@ public class RateLimitTester {
     private final String teamDriveId;
     private final Hold hold = new Hold();
     private final AtomicBoolean started = new AtomicBoolean();
+    private final AtomicBoolean disabled = new AtomicBoolean();
 
     public RateLimitTester(GoogleServices services, File parentFile, String teamDriveId) {
         this.services = services;
@@ -82,9 +83,37 @@ public class RateLimitTester {
     }
 
     /**
+     * Disables the rate limit tester. This only makes {@link #waitForRateLimit()} do nothing.
+     */
+    public void disable() {
+        disabled.set(true);
+    }
+
+    /**
+     * Re-enabled the rate limit tester
+     */
+    public void enable() {
+        disabled.set(false);
+    }
+
+    /**
+     * Checks if the rate limit tester is disabled. No matter what, however, in the background rate limits will be
+     * tested in case it is re-enabled.
+     *
+     * @return If the rate limit tester is disabled
+     */
+    public boolean isDisabled() {
+        return disabled.get();
+    }
+
+    /**
      * Waits the current thread until the program is no longer being rate limited.
      */
     public void waitForRateLimit() {
+        if (disabled.get()) {
+            return;
+        }
+
         try {
             hold.waitForRelease();
         } catch (InterruptedException e) {

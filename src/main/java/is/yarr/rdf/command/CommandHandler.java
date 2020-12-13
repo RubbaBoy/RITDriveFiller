@@ -6,6 +6,8 @@ import is.yarr.rdf.auth.GoogleServices;
 import is.yarr.rdf.config.ConfigHandler;
 import is.yarr.rdf.config.json.Config;
 import is.yarr.rdf.config.json.UserData;
+import is.yarr.rdf.filler.strategies.FillStrategy;
+import is.yarr.rdf.filler.strategies.FillStrategyFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
@@ -22,6 +24,12 @@ public class CommandHandler implements Runnable {
 
     @Option(names = {"-g", "--generate"}, description = "If it should only generate a token in --token")
     boolean generate;
+
+    @Option(names = {"-q", "--sequential"}, description = "If multiple users in the config should upload files one at a time")
+    boolean sequential;
+
+    @Option(names = {"-a", "--account"}, description = "If using a single account, the name of it in the config")
+    String accountName;
 
     @Option(names = {"-o", "--config"}, description = "A file to a JSON config, overriding user-specific arguments")
     String configFile;
@@ -73,11 +81,13 @@ public class CommandHandler implements Runnable {
             return;
         }
 
+
         try {
             var config = generateConfig();
-            var configHandler = new ConfigHandler(config);
 
-            configHandler.beginFill();
+            var fillStrategyFactory = new FillStrategyFactory();
+            var fillStrategy = fillStrategyFactory.createFillStrategy(config, sequential);
+            fillStrategy.beginFill(accountName);
         } catch (InterruptedException | FileNotFoundException e) {
             LOGGER.error("An error occurred while filling data", e);
         }
