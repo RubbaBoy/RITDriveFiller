@@ -1,15 +1,18 @@
 package is.yarr.rdf.filler;
 
+import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.client.http.AbstractInputStreamContent;
 import com.google.api.client.http.ByteArrayContent;
 import com.google.api.client.http.FileContent;
 import com.google.api.services.drive.model.File;
+import is.yarr.rdf.RateLimitTester;
 import is.yarr.rdf.auth.GoogleServices;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.Optional;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
@@ -22,6 +25,7 @@ public abstract class DriveFiller {
     private final AtomicBoolean fresh = new AtomicBoolean(true);
     private final CountDownLatch latch;
     private final ExecutorService executorService;
+    private final RateLimitTester rateLimitTester;
 
     final File parentFile;
     final GoogleServices services;
@@ -30,16 +34,17 @@ public abstract class DriveFiller {
     /**
      * Creates a {@link DriveFiller}.
      *
-     * @param parentId The folder ID of where the filling should be contained in
+     * @param parentFile The folder of where the filling should be contained in
      * @param services The {@link GoogleServices}
      * @param threads The amount of threads to use
      */
-    protected DriveFiller(File parentId, GoogleServices services, int threads) {
-        this.parentFile = parentId;
+    protected DriveFiller(File parentFile, GoogleServices services, int threads) {
+        this.parentFile = parentFile;
         this.services = services;
         this.threads = threads;
         this.latch = new CountDownLatch(threads);
         this.executorService = Executors.newFixedThreadPool(threads);
+        this.rateLimitTester = new RateLimitTester(services, parentFile);
     }
 
     /**
@@ -78,6 +83,8 @@ public abstract class DriveFiller {
             LOGGER.error("DriveFiller busy!");
             return;
         }
+
+        rateLimitTester.startChecking();
 
         fresh.set(false);
 
@@ -118,7 +125,7 @@ public abstract class DriveFiller {
      * @return The ID of the file
      * @throws IOException If an exception occurs
      */
-    String uploadData(String name, String mimeType, java.io.File file) throws IOException {
+    Optional<String> uploadData(String name, String mimeType, java.io.File file) throws IOException {
         return uploadData(name, new FileContent(mimeType, file));
     }
 
@@ -131,11 +138,11 @@ public abstract class DriveFiller {
      * @return The ID of the file
      * @throws IOException If an exception occurs
      */
-    String uploadData(String name, String mimeType, byte[] bytes) throws IOException {
+    Optional<String> uploadData(String name, String mimeType, byte[] bytes) throws IOException {
         return uploadData(name, new ByteArrayContent(mimeType, bytes));
     }
 
-    String uploadData(String name, AbstractInputStreamContent content) throws IOException {
+    Optional<String> uploadData(String name, AbstractInputStreamContent content) throws IOException {
         var drive = services.getDrive();
 
         var request = drive.files().create(new File()
@@ -147,7 +154,16 @@ public abstract class DriveFiller {
                 .setDirectUploadEnabled(false)
                 .setChunkSize(100 * 0x100000); // 100MB (Default 10)
 
-        return request.execute().getId();
+        try {
+            return Optional.of(request.execute().getId());
+        } catch (GoogleJsonResponseException e) {
+            if (e.getDetails().getMessage().equals("User rate limit exceeded.")) {
+                LOGGER.debug("Hit rate limit!");
+                rateLimitTester.waitForRateLimit();
+            }
+        }
+
+        return Optional.empty();
     }
 
     /**
