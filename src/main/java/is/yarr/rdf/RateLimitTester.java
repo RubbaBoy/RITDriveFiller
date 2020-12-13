@@ -20,12 +20,14 @@ public class RateLimitTester {
 
     private final GoogleServices services;
     private final File parentFile;
+    private final String teamDriveId;
     private final Hold hold = new Hold();
     private final AtomicBoolean started = new AtomicBoolean();
 
-    public RateLimitTester(GoogleServices services, File parentFile) {
+    public RateLimitTester(GoogleServices services, File parentFile, String teamDriveId) {
         this.services = services;
         this.parentFile = parentFile;
+        this.teamDriveId = teamDriveId;
     }
 
     /**
@@ -46,17 +48,23 @@ public class RateLimitTester {
 
                 var request = drive.files().create(new File()
                                 .setName("temp")
+                                .setTeamDriveId(teamDriveId)
                                 .setParents(Collections.singletonList(parentFile.getId())),
-                        new ByteArrayContent("image/png", new byte[]{0})).setFields("id");
+                        new ByteArrayContent("image/png", new byte[]{0}))
+                        .setFields("id")
+                        .setSupportsTeamDrives(true);
 
                 request.getMediaHttpUploader()
                         .setDirectUploadEnabled(false)
                         .setChunkSize(100 * 0x100000); // 100MB (Default 10)
 
                 try {
-                    drive.files().delete(request.execute().getId()).execute();
+                    drive.files()
+                            .delete(request.execute().getId())
+                            .setSupportsTeamDrives(true)
+                            .execute();
                 } catch (GoogleJsonResponseException e) {
-                    if (e.getDetails().getMessage().equals("User rate limit exceeded.")) {
+                    if (e.getDetails().getMessage().equals("UserData rate limit exceeded.")) {
                         LOGGER.debug("Hit rate limit!");
                     } else {
                         LOGGER.error("Hit other error during rate limit checking", e);

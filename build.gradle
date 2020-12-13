@@ -25,6 +25,8 @@ dependencies {
     implementation 'com.google.apis:google-api-services-drive:v3-rev110-1.23.0'
     implementation 'com.google.apis:google-api-services-sheets:v4-rev581-1.25.0'
 
+    implementation 'com.google.code.gson:gson:2.8.6'
+
 
     implementation 'info.picocli:picocli:4.1.2'
     annotationProcessor 'info.picocli:picocli-codegen:4.1.2'

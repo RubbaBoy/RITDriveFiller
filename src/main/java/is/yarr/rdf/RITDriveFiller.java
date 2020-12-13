@@ -11,30 +11,24 @@ public class RITDriveFiller {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RITDriveFiller.class);
 
-    private GoogleServices services;
-
     public static void main(String[] args) {
         if (args.length == 0) {
             args = new String[]{"-h"};
         }
 
-        System.exit(new CommandLine(new CommandHandler(new RITDriveFiller())).execute(args));
+        System.exit(new CommandLine(new CommandHandler()).execute(args));
     }
 
-    public void init(String tokenDirectory) {
+    public static GoogleServices createServices(String name, String tokenDirectory) {
         var authMan = new LocalGoogleServiceCreator();
 
         var servicesOptional = authMan.createServices("credentials.json", tokenDirectory);
         if (servicesOptional.isEmpty()) {
-            LOGGER.error("Unable to create GoogleServices");
+            LOGGER.error("Unable to create GoogleServices for {} in directory {}", name, tokenDirectory);
             System.exit(0);
         }
 
-        services = servicesOptional.get();
-    }
-
-    public GoogleServices getServices() {
-        return services;
+        return servicesOptional.get();
     }
 
 }

@@ -46,32 +46,36 @@ public abstract class DriveFiller {
         this.threads = threads;
         this.latch = new CountDownLatch(threads);
         this.executorService = Executors.newFixedThreadPool(threads);
-        this.rateLimitTester = new RateLimitTester(services, parentFile);
+        this.rateLimitTester = new RateLimitTester(services, parentFile, teamDriveId);
     }
 
     /**
      * Fills with {@link #fill()} indefinitely as fast as possible.
+     *
+     * @return The {@link CountDownLatch} which should be awaited for completion of the threads
      */
-    public void fillIndefinitely() {
-        fillIndefinitely(0);
+    public Optional<CountDownLatch> fillIndefinitely() {
+        return fillIndefinitely(0);
     }
 
     /**
      * Fills with {@link #fill()} indefinitely with a delay between each iteration.
      *
      * @param delayMillis The delay between each fill in milliseconds
+     * @return The {@link CountDownLatch} which should be awaited for completion of the threads
      */
-    public void fillIndefinitely(long delayMillis) {
-        fillIncrementally(-1, delayMillis);
+    public Optional<CountDownLatch> fillIndefinitely(long delayMillis) {
+        return fillIncrementally(-1, delayMillis);
     }
 
     /**
      * Fills with {@link #fill()} {@param count} times as fast as possible.
      *
      * @param count The amount of times to invoke {@link #fill()}
+     * @return The {@link CountDownLatch} which should be awaited for completion of the threads
      */
-    public void fillIncrementally(int count) {
-        fillIncrementally(count, 0);
+    public Optional<CountDownLatch> fillIncrementally(int count) {
+        return fillIncrementally(count, 0);
     }
 
     /**
@@ -79,11 +83,12 @@ public abstract class DriveFiller {
      *
      * @param count       The amount of times to invoke {@link #fill()}
      * @param delayMillis The delay between each fill in milliseconds
+     * @return The {@link CountDownLatch} which should be awaited for completion of the threads
      */
-    public void fillIncrementally(int count, long delayMillis) {
+    public Optional<CountDownLatch> fillIncrementally(int count, long delayMillis) {
         if (!fresh.get() && latch.getCount() != 0) {
             LOGGER.error("DriveFiller busy!");
-            return;
+            return Optional.empty();
         }
 
         rateLimitTester.startChecking();
@@ -111,11 +116,7 @@ public abstract class DriveFiller {
             });
         }
 
-        try {
-            latch.await();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+        return Optional.of(latch);
     }
 
     /**
@@ -151,16 +152,18 @@ public abstract class DriveFiller {
                 .setName(name)
                 .setTeamDriveId(teamDriveId)
                 .setParents(Collections.singletonList(parentFile.getId())),
-                content).setFields("id");
+                content)
+                .setFields("id")
+                .setSupportsTeamDrives(true);
 
         request.getMediaHttpUploader()
                 .setDirectUploadEnabled(false)
                 .setChunkSize(100 * 0x100000); // 100MB (Default 10)
 
         try {
-            return Optional.of(request.setSupportsTeamDrives(true).execute().getId());
+            return Optional.of(request.execute().getId());
         } catch (GoogleJsonResponseException e) {
-            if (e.getDetails().getMessage().equals("User rate limit exceeded.")) {
+            if (e.getDetails().getMessage().contains("rate limit")) {
                 LOGGER.debug("Hit rate limit!");
                 rateLimitTester.waitForRateLimit();
             } else {
