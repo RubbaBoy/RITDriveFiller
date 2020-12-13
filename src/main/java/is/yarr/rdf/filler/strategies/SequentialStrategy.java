@@ -42,28 +42,20 @@ public class SequentialStrategy extends FillStrategy {
             }
 
             var services = RITDriveFiller.createServices(user.getName(), user.getTokenPath());
-            var drive = services.getDrive();
 
             try {
-                LOGGER.info("Starting user {}", user.getName());
-
                 if (user.getName().equals("aty3425")) {
                     continue;
                 }
 
-                var dataPath = Paths.get(user.getFile());
+                LOGGER.info("Starting on user {}", user.getName());
 
-                if (!Files.exists(dataPath) || Files.isDirectory(dataPath)) {
-                    LOGGER.error("Data file either doesn't exist or is a Directory");
+                var fillerOptional = create(user, services, rollingAverageManager);
+                if (fillerOptional.isEmpty()) {
                     continue;
                 }
+                var filler = fillerOptional.get();
 
-                var parentFile = drive.files()
-                        .get(user.getUploadTo())
-                        .setSupportsTeamDrives(true)
-                        .execute();
-
-                var filler = new FileFiller(user.getName(), parentFile, user.getTeamDrive(), services, rollingAverageManager, dataPath, user.getRandomName(), user.getThreads());
                 filler.getRateLimitTester().disable();
 
                 threads = Math.max(threads, user.getThreads());

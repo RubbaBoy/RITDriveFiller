@@ -25,6 +25,11 @@ public class RateLimitTester {
     private final AtomicBoolean started = new AtomicBoolean();
     private final AtomicBoolean disabled = new AtomicBoolean();
 
+    /**
+     * Invoked when {@link #waitForRateLimit()} is called
+     */
+    private Runnable rateLimitListener;
+
     public RateLimitTester(GoogleServices services, File parentFile, String teamDriveId) {
         this.services = services;
         this.parentFile = parentFile;
@@ -110,6 +115,10 @@ public class RateLimitTester {
      * Waits the current thread until the program is no longer being rate limited.
      */
     public void waitForRateLimit() {
+        if (rateLimitListener != null) {
+            rateLimitListener.run();
+        }
+
         if (disabled.get()) {
             return;
         }
@@ -119,5 +128,14 @@ public class RateLimitTester {
         } catch (InterruptedException e) {
             LOGGER.error("An error occurred while waiting for rate limit release", e);
         }
+    }
+
+    /**
+     * Sets a rate limit listener invoked when {@link #waitForRateLimit()} is called, even if disabled.
+     *
+     * @param listener The listener
+     */
+    public void setRateLimitListener(Runnable listener) {
+        rateLimitListener = listener;
     }
 }

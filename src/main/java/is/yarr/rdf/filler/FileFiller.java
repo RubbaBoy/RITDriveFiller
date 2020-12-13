@@ -47,15 +47,20 @@ public class FileFiller extends DriveFiller {
         try {
             var name = randomName ? generateName(12) : dataPath.toFile().getName();
             var start = System.currentTimeMillis();
-            uploadData(name, Files.probeContentType(dataPath), data);
-            var time = System.currentTimeMillis() - start;
-            rollingAverageManager.addBytes(data.length);
-            LOGGER.info("[{}] Uploaded in {}ms", this.name, time);
+            uploadData(name, Files.probeContentType(dataPath), data).ifPresent($ -> {
+                var time = System.currentTimeMillis() - start;
+                rollingAverageManager.addBytes(data.length);
+                LOGGER.info("[{}] Uploaded in {}ms", this.name, time);
+            });
         } catch (IOException e) {
             LOGGER.error("[" + this.name + "] An exception occurred while uploading data file '" + dataPath + "'", e);
             return false;
         }
 
         return true;
+    }
+
+    public int getFileSize() {
+        return data.length;
     }
 }

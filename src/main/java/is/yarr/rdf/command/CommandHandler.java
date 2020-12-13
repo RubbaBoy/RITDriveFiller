@@ -28,6 +28,9 @@ public class CommandHandler implements Runnable {
     @Option(names = {"-q", "--sequential"}, description = "If multiple users in the config should upload files one at a time")
     boolean sequential;
 
+    @Option(names = {"-u", "--uploadLimit"}, description = "The upload limit in MB, automatically uses the account rollover strategy", defaultValue = "-1")
+    int uploadLimit;
+
     @Option(names = {"-a", "--account"}, description = "If using a single account, the name of it in the config")
     String accountName;
 
@@ -86,7 +89,7 @@ public class CommandHandler implements Runnable {
             var config = generateConfig();
 
             var fillStrategyFactory = new FillStrategyFactory();
-            var fillStrategy = fillStrategyFactory.createFillStrategy(config, sequential);
+            var fillStrategy = fillStrategyFactory.createFillStrategy(config, uploadLimit, sequential);
             fillStrategy.beginFill(accountName);
         } catch (InterruptedException | FileNotFoundException e) {
             LOGGER.error("An error occurred while filling data", e);

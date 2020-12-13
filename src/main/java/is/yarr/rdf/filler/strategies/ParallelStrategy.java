@@ -1,8 +1,11 @@
 package is.yarr.rdf.filler.strategies;
 
+import com.google.api.services.drive.Drive;
 import is.yarr.rdf.RITDriveFiller;
 import is.yarr.rdf.RollingAverageManager;
+import is.yarr.rdf.auth.GoogleServices;
 import is.yarr.rdf.config.json.Config;
+import is.yarr.rdf.config.json.UserData;
 import is.yarr.rdf.filler.FileFiller;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,6 +14,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 
 public class ParallelStrategy extends FillStrategy {
@@ -38,24 +42,16 @@ public class ParallelStrategy extends FillStrategy {
             }
 
             var services = RITDriveFiller.createServices(user.getName(), user.getTokenPath());
-            var drive = services.getDrive();
 
             try {
                 LOGGER.info("Starting user {}", user.getName());
-                var dataPath = Paths.get(user.getFile());
 
-                if (!Files.exists(dataPath) || Files.isDirectory(dataPath)) {
-                    LOGGER.error("Data file either doesn't exist or is a Directory");
+                var fillerOptional = create(user, services, rollingAverageManager);
+                if (fillerOptional.isEmpty()) {
                     continue;
                 }
 
-                var parentFile = drive.files()
-                        .get(user.getUploadTo())
-                        .setSupportsTeamDrives(true)
-                        .execute();
-
-                var filler = new FileFiller(user.getName(), parentFile, user.getTeamDrive(), services, rollingAverageManager, dataPath, user.getRandomName(), user.getThreads());
-                filler.fillIncrementally(user.getCount(), user.getDelay()).ifPresent(latches::add);
+                fillerOptional.get().fillIncrementally(user.getCount(), user.getDelay()).ifPresent(latches::add);
 
                 Thread.sleep(5000);
             } catch (IOException e) {
