@@ -30,6 +30,9 @@ public class CommandHandler implements Runnable {
     @Option(names = {"-c", "--count"}, description = "The amount of times to fill with whatever strategy being used, -1 for indefinitely", defaultValue = "-1")
     int count;
 
+    @Option(names = {"-t", "--threads"}, description = "The amount of threads to use", defaultValue = "1")
+    int threads;
+
     @Option(names = {"-d", "--delay"}, description = "The delay in ms between each fill", defaultValue = "500")
     long delay;
 
@@ -75,10 +78,10 @@ public class CommandHandler implements Runnable {
                     return;
                 }
 
-                var filler = new FileFiller(parentFile, services, dataPath, randomName);
+                var filler = new FileFiller(parentFile, services, dataPath, randomName, threads);
                 filler.fillIncrementally(count, delay);
             } else if (width != 0) {
-                var filler = new RandomFiller(parentFile, services, width, height);
+                var filler = new RandomFiller(parentFile, services, width, height, threads);
                 filler.fillIncrementally(count, delay);
             }
 

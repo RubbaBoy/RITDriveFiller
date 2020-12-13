@@ -24,7 +24,7 @@ public class RITDriveFiller {
     public void init() {
         var authMan = new LocalGoogleServiceCreator();
 
-        var servicesOptional = authMan.createServices("E:\\DriveFiller\\credentials.json");
+        var servicesOptional = authMan.createServices("credentials.json");
         if (servicesOptional.isEmpty()) {
             LOGGER.error("Unable to create GoogleServices");
             System.exit(0);

@@ -1,18 +1,16 @@
 package is.yarr.rdf.filler;
 
+import com.google.api.client.http.AbstractInputStreamContent;
 import com.google.api.client.http.ByteArrayContent;
+import com.google.api.client.http.FileContent;
 import com.google.api.services.drive.model.File;
 import is.yarr.rdf.auth.GoogleServices;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.Collections;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -21,22 +19,27 @@ public abstract class DriveFiller {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DriveFiller.class);
 
-    private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
     private final AtomicBoolean fresh = new AtomicBoolean(true);
-    private final AtomicBoolean completed = new AtomicBoolean();
+    private final CountDownLatch latch;
+    private final ExecutorService executorService;
 
     final File parentFile;
     final GoogleServices services;
+    private final int threads;
 
     /**
      * Creates a {@link DriveFiller}.
      *
      * @param parentId The folder ID of where the filling should be contained in
      * @param services The {@link GoogleServices}
+     * @param threads The amount of threads to use
      */
-    protected DriveFiller(File parentId, GoogleServices services) {
+    protected DriveFiller(File parentId, GoogleServices services, int threads) {
         this.parentFile = parentId;
         this.services = services;
+        this.threads = threads;
+        this.latch = new CountDownLatch(threads);
+        this.executorService = Executors.newFixedThreadPool(threads);
     }
 
     /**
@@ -71,31 +74,52 @@ public abstract class DriveFiller {
      * @param delayMillis The delay between each fill in milliseconds
      */
     public void fillIncrementally(int count, long delayMillis) {
-        if (!fresh.get() && !completed.get()) {
+        if (!fresh.get() && latch.getCount() != 0) {
             LOGGER.error("DriveFiller busy!");
             return;
         }
 
-        completed.set(false);
         fresh.set(false);
-        var activeTask = scheduledExecutorService.scheduleAtFixedRate(() -> {
-            var iterations = count == -1 ? Integer.MAX_VALUE : count;
-            for (int i = 0; i < iterations; i++) {
-                if (!fill()) {
-                    break;
-                }
-            }
 
-            completed.set(true);
-        }, 0, delayMillis, TimeUnit.MILLISECONDS);
+        for (int i1 = 0; i1 < threads; i1++) {
+            executorService.execute(() -> {
+                var iterations = count == -1 ? Integer.MAX_VALUE : count;
+                for (int i = 0; i < iterations; i++) {
+                    if (!fill()) {
+                        break;
+                    }
+
+                    if (delayMillis != 0) {
+                        try {
+                            Thread.sleep(delayMillis);
+                        } catch (InterruptedException e) {
+                            break;
+                        }
+                    }
+                }
+
+                latch.countDown();
+            });
+        }
 
         try {
-            while (!completed.get()) {
-                Thread.sleep(500);
-            }
-        } catch (InterruptedException e) {} finally {
-            activeTask.cancel(true);
+            latch.await();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
+    }
+
+    /**
+     * Uploads binary data to Google Drive, using the provided parent ID.
+     *
+     * @param name The name of the file
+     * @param mimeType The real MIME type of the file
+     * @param file The file
+     * @return The ID of the file
+     * @throws IOException If an exception occurs
+     */
+    String uploadData(String name, String mimeType, java.io.File file) throws IOException {
+        return uploadData(name, new FileContent(mimeType, file));
     }
 
     /**
@@ -108,9 +132,12 @@ public abstract class DriveFiller {
      * @throws IOException If an exception occurs
      */
     String uploadData(String name, String mimeType, byte[] bytes) throws IOException {
+        return uploadData(name, new ByteArrayContent(mimeType, bytes));
+    }
+
+    String uploadData(String name, AbstractInputStreamContent content) throws IOException {
         var drive = services.getDrive();
 
-        var content = new ByteArrayContent(mimeType, bytes);
         var request = drive.files().create(new File()
                 .setName(name)
                 .setParents(Collections.singletonList(parentFile.getId())),
