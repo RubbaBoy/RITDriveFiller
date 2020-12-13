@@ -20,14 +20,15 @@ public class RandomFiller extends DriveFiller {
 
     /**
      * Creates a {@link DriveFiller}.
-     *  @param parentId The folder ID of where the filling should be contained in
+     * @param parentId The folder ID of where the filling should be contained in
+     * @param teamDriveId
      * @param services The {@link GoogleServices}
      * @param width The width of the generated image
      * @param height The height of the generated image
      * @param threads
      */
-    public RandomFiller(File parentId, GoogleServices services, int width, int height, int threads) {
-        super(parentId, services, threads);
+    public RandomFiller(File parentId, String teamDriveId, GoogleServices services, int width, int height, int threads) {
+        super(parentId, teamDriveId, services, threads);
         this.width = width;
         this.height = height;
     }

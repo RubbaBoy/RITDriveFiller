@@ -1,5 +1,6 @@
 package is.yarr.rdf.command;
 
+import com.google.api.services.drive.model.TeamDrive;
 import is.yarr.rdf.RITDriveFiller;
 import is.yarr.rdf.filler.FileFiller;
 import is.yarr.rdf.filler.RandomFiller;
@@ -17,6 +18,12 @@ public class CommandHandler implements Runnable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CommandHandler.class);
     private final RITDriveFiller driveFiller;
+
+    @Option(names = {"-s", "--token"}, description = "The directory to store user token", defaultValue = "default")
+    String tokenDir;
+
+    @Option(names = {"-i", "--teamdrive"}, description = "If using a team drive, its ID")
+    String teamDriveId;
 
     @Option(names = {"-f", "--file"}, description = "The file to upload")
     String data;
@@ -49,7 +56,7 @@ public class CommandHandler implements Runnable {
 
     @Override
     public void run() {
-        driveFiller.init();
+        driveFiller.init(tokenDir);
 
         var services = driveFiller.getServices();
         var drive = services.getDrive();
@@ -69,7 +76,7 @@ public class CommandHandler implements Runnable {
         }
 
         try {
-            var parentFile = drive.files().get(parentId).execute();
+            var parentFile = drive.files().get(parentId).setSupportsTeamDrives(true).execute();
 
             if (data != null) {
                 var dataPath = Paths.get(data);
@@ -78,10 +85,10 @@ public class CommandHandler implements Runnable {
                     return;
                 }
 
-                var filler = new FileFiller(parentFile, services, dataPath, randomName, threads);
+                var filler = new FileFiller(parentFile, teamDriveId, services, dataPath, randomName, threads);
                 filler.fillIncrementally(count, delay);
             } else if (width != 0) {
-                var filler = new RandomFiller(parentFile, services, width, height, threads);
+                var filler = new RandomFiller(parentFile, teamDriveId, services, width, height, threads);
                 filler.fillIncrementally(count, delay);
             }
 

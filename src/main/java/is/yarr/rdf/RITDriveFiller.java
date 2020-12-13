@@ -21,10 +21,10 @@ public class RITDriveFiller {
         System.exit(new CommandLine(new CommandHandler(new RITDriveFiller())).execute(args));
     }
 
-    public void init() {
+    public void init(String tokenDirectory) {
         var authMan = new LocalGoogleServiceCreator();
 
-        var servicesOptional = authMan.createServices("credentials.json");
+        var servicesOptional = authMan.createServices("credentials.json", tokenDirectory);
         if (servicesOptional.isEmpty()) {
             LOGGER.error("Unable to create GoogleServices");
             System.exit(0);

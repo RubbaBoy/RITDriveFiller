@@ -28,6 +28,7 @@ public abstract class DriveFiller {
     private final RateLimitTester rateLimitTester;
 
     final File parentFile;
+    private final String teamDriveId;
     final GoogleServices services;
     private final int threads;
 
@@ -38,8 +39,9 @@ public abstract class DriveFiller {
      * @param services The {@link GoogleServices}
      * @param threads The amount of threads to use
      */
-    protected DriveFiller(File parentFile, GoogleServices services, int threads) {
+    protected DriveFiller(File parentFile, String teamDriveId, GoogleServices services, int threads) {
         this.parentFile = parentFile;
+        this.teamDriveId = teamDriveId;
         this.services = services;
         this.threads = threads;
         this.latch = new CountDownLatch(threads);
@@ -147,6 +149,7 @@ public abstract class DriveFiller {
 
         var request = drive.files().create(new File()
                 .setName(name)
+                .setTeamDriveId(teamDriveId)
                 .setParents(Collections.singletonList(parentFile.getId())),
                 content).setFields("id");
 
@@ -155,11 +158,13 @@ public abstract class DriveFiller {
                 .setChunkSize(100 * 0x100000); // 100MB (Default 10)
 
         try {
-            return Optional.of(request.execute().getId());
+            return Optional.of(request.setSupportsTeamDrives(true).execute().getId());
         } catch (GoogleJsonResponseException e) {
             if (e.getDetails().getMessage().equals("User rate limit exceeded.")) {
                 LOGGER.debug("Hit rate limit!");
                 rateLimitTester.waitForRateLimit();
+            } else {
+                LOGGER.error("Unknown error while uploading data", e);
             }
         }
 

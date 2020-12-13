@@ -32,14 +32,13 @@ public class LocalGoogleServiceCreator implements GoogleServiceCreator {
 
     private static final String APPLICATION_NAME = "RITDriveFiller";
     private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
-    private static final String TOKENS_DIRECTORY_PATH = "private";
     private static final List<String> SCOPES = List.of(DriveScopes.DRIVE);
 
     @Override
-    public Optional<GoogleServices> createServices(String credentialPath) {
+    public Optional<GoogleServices> createServices(String credentialPath, String tokenDirectory) {
         try {
             final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
-            var credentials = getCredentials(credentialPath, HTTP_TRANSPORT);
+            var credentials = getCredentials(credentialPath, tokenDirectory, HTTP_TRANSPORT);
 
             if (credentials == null) {
                 return Optional.empty();
@@ -57,12 +56,12 @@ public class LocalGoogleServiceCreator implements GoogleServiceCreator {
         }
     }
 
-    private Credential getCredentials(String credentialPath, NetHttpTransport HTTP_TRANSPORT) throws IOException {
+    private Credential getCredentials(String credentialPath, String tokenDirectory, NetHttpTransport HTTP_TRANSPORT) throws IOException {
         var clientSecrets = GoogleClientSecrets.load(JSON_FACTORY, credentialsReader(credentialPath));
 
         var flow = new GoogleAuthorizationCodeFlow.Builder(
                 HTTP_TRANSPORT, JSON_FACTORY, clientSecrets, SCOPES)
-                .setDataStoreFactory(new FileDataStoreFactory(new java.io.File(TOKENS_DIRECTORY_PATH)))
+                .setDataStoreFactory(new FileDataStoreFactory(new java.io.File(tokenDirectory)))
                 .setAccessType("offline")
                 .build();
 

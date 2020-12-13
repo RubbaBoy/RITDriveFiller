@@ -33,8 +33,8 @@ public class FileFiller extends DriveFiller {
 
     private boolean initial = true;
 
-    public FileFiller(File parentFile, GoogleServices services, Path dataPath, boolean randomName, int threads) {
-        super(parentFile, services, threads);
+    public FileFiller(File parentFile, String teamDriveId, GoogleServices services, Path dataPath, boolean randomName, int threads) {
+        super(parentFile, teamDriveId, services, threads);
         this.dataPath = dataPath;
         this.randomName = randomName;
 
@@ -64,15 +64,11 @@ public class FileFiller extends DriveFiller {
     @Override
     boolean fill() {
         try {
-
             var name = randomName ? generateName(12) : dataPath.toFile().getName();
             var start = System.currentTimeMillis();
             uploadData(name, Files.probeContentType(dataPath), data);
             var time = System.currentTimeMillis() - start;
-//            var mbs = (Files.size(dataPath) / 1_000_000D) / (time / 1000D);
             bytesUploaded.addAndGet(Files.size(dataPath));
-//            average.add(mbs);
-//            LOGGER.info("Uploaded in {}ms  {} mb/s  (20 ma: {} mb/s)", time, FORMATTER.format(mbs), FORMATTER.format(average.getAverage()));
             LOGGER.info("Uploaded in {}ms", time);
         } catch (IOException e) {
             LOGGER.error("An exception occurred while uploading data file '" + dataPath + "'", e);
