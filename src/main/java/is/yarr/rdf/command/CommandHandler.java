@@ -1,12 +1,10 @@
 package is.yarr.rdf.command;
 
 import com.google.gson.Gson;
+import is.yarr.rdf.FileMover;
 import is.yarr.rdf.RITDriveFiller;
-import is.yarr.rdf.auth.GoogleServices;
-import is.yarr.rdf.config.ConfigHandler;
 import is.yarr.rdf.config.json.Config;
 import is.yarr.rdf.config.json.UserData;
-import is.yarr.rdf.filler.strategies.FillStrategy;
 import is.yarr.rdf.filler.strategies.FillStrategyFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,6 +13,7 @@ import picocli.CommandLine.Option;
 
 import java.io.FileNotFoundException;
 import java.io.FileReader;
+import java.io.IOException;
 import java.util.Collections;
 
 @CommandLine.Command(name = "example", mixinStandardHelpOptions = true, version = "RITDriveFiller v1.0.0", customSynopsis = "dunno here [-hV]")
@@ -61,6 +60,9 @@ public class CommandHandler implements Runnable {
     @Option(names = {"-d", "--delay"}, description = "The delay in ms between each fill", defaultValue = "500")
     long delay;
 
+    @Option(names = {"-m", "move"}, description = "Moves files from the comma-separated list of folders into the destination folder")
+    String moving;
+
     @Override
     public void run() {
         if (generate) {
@@ -84,14 +86,38 @@ public class CommandHandler implements Runnable {
             return;
         }
 
+        Config config = null;
+        try {
+            config = generateConfig();
+        } catch (FileNotFoundException e) {
+            LOGGER.error("An error occurred while creating Config", e);
+            return;
+        }
+
+        if (moving != null) {
+            if (accountName == null) {
+                LOGGER.error("--accountName must be defined");
+                return;
+            }
+
+            var fileMover = new FileMover(config, accountName);
+            for (var id : moving.split(",")) {
+                try {
+                    fileMover.moveChildren(id);
+                } catch (IOException e) {
+                    LOGGER.error("An error occurred while moving files", e);
+                }
+            }
+
+            return;
+        }
 
         try {
-            var config = generateConfig();
 
             var fillStrategyFactory = new FillStrategyFactory();
             var fillStrategy = fillStrategyFactory.createFillStrategy(config, uploadLimit, sequential);
             fillStrategy.beginFill(accountName);
-        } catch (InterruptedException | FileNotFoundException e) {
+        } catch (InterruptedException e) {
             LOGGER.error("An error occurred while filling data", e);
         }
     }
@@ -108,6 +134,7 @@ public class CommandHandler implements Runnable {
                 .setTeamDrive(teamDriveId)
                 .setFile(data)
                 .setRandomName(randomName)
+                .setThreads(threads)
         ));
     }
 }

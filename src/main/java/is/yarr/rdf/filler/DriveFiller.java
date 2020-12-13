@@ -13,7 +13,10 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Optional;
-import java.util.concurrent.*;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -163,9 +166,11 @@ public abstract class DriveFiller {
         try {
             return Optional.of(request.execute().getId());
         } catch (GoogleJsonResponseException e) {
-            if (e.getDetails().getMessage().contains("rate limit")) {
+            if (e.getDetails().getErrors().get(0).getDomain().equals("usageLimits")) {
                 LOGGER.debug("Hit rate limit!");
                 rateLimitTester.waitForRateLimit();
+            } else if (e.getMessage().equals("Forbidden")) {
+                LOGGER.error("Got forbidden uploading to {}", parentFile.getId());
             } else {
                 LOGGER.error("Unknown error while uploading data", e);
             }

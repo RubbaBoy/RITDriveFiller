@@ -1,20 +1,13 @@
 package is.yarr.rdf.filler.strategies;
 
-import com.google.api.services.drive.Drive;
 import is.yarr.rdf.RITDriveFiller;
 import is.yarr.rdf.RollingAverageManager;
-import is.yarr.rdf.auth.GoogleServices;
 import is.yarr.rdf.config.json.Config;
-import is.yarr.rdf.config.json.UserData;
-import is.yarr.rdf.filler.FileFiller;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 
 public class ParallelStrategy extends FillStrategy {

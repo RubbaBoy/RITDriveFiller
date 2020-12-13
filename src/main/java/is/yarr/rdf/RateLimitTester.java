@@ -70,7 +70,7 @@ public class RateLimitTester {
                             .setSupportsTeamDrives(true)
                             .execute();
                 } catch (GoogleJsonResponseException e) {
-                    if (e.getDetails().getMessage().equals("UserData rate limit exceeded.")) {
+                    if (e.getDetails().getErrors().get(0).getDomain().equals("usageLimits")) {
                         LOGGER.debug("Hit rate limit!");
                     } else {
                         LOGGER.error("Hit other error during rate limit checking", e);
