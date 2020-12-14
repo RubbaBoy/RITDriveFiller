@@ -5,8 +5,8 @@ import java.util.List;
 
 public class RollingAverage {
 
-    private int length;
-    private List<Double> values = new ArrayList<>();
+    private final int length;
+    private final List<Double> values = new ArrayList<>();
 
     public RollingAverage(int length) {
         this.length = length;

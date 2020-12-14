@@ -46,7 +46,7 @@ public class FileMover {
 
         LOGGER.info("Here {} -> {}", parentId, uploadTo);
 
-        var ayarris = drive.files().get("1i7N3nvJfsHnUniPxHJyxYGBygrBdfUTJ")
+        var ayarris = drive.files().get("1rpcbngDXjKxHdZa-RcWEY2wXiUvzn1cD")
                 .setSupportsTeamDrives(true)
                 .setFields("id, parents")
                 .execute();
@@ -54,9 +54,10 @@ public class FileMover {
         LOGGER.info("Parents: {}", ayarris.getParents());
 
         drive.files()
-                .update("1i7N3nvJfsHnUniPxHJyxYGBygrBdfUTJ", new File())
+                .update("1rpcbngDXjKxHdZa-RcWEY2wXiUvzn1cD", new File())
                 .setSupportsTeamDrives(true)
-                .setAddParents("1b9xj05MXD6zmu4YHR3GWTVSJYybowzDS")
+                .setAddParents("1JvO-tIlhv43Qz7O0I4eTO6XqOdnCSMph")
+                .setRemoveParents("0ADIk44ytOUSbUk9PVA")
                 .setFields("id, parents")
                 .execute();
 

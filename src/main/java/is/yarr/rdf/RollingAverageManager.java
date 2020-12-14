@@ -1,21 +1,22 @@
 package is.yarr.rdf;
 
-import com.google.common.util.concurrent.AtomicDouble;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.text.DecimalFormat;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
+
+import static is.yarr.rdf.Utility.humanReadableByteCountSI;
 
 public class RollingAverageManager {
 
-    private static final int EVERY_SECONDS = 10;
+    private static final long EVERY_SECONDS = 10;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RollingAverageManager.class);
-    private static final DecimalFormat FORMATTER = new DecimalFormat("0.00");
 
-    private final AtomicDouble bytesUploaded = new AtomicDouble();
+    private final AtomicLong totalBytesUploaded = new AtomicLong();
+    private final AtomicLong bytesUploaded = new AtomicLong();
 
     private final RollingAverage rollingAverage;
 
@@ -39,9 +40,9 @@ public class RollingAverageManager {
                 initial = false;
             }
 
-            var mbs = (bytes / 1_000_000D) / (double) EVERY_SECONDS;
+            var mbs = bytes / EVERY_SECONDS;
             rollingAverage.add(mbs);
-            LOGGER.info("Speed: {} mb/s  (20 ma: {} mb/s)", FORMATTER.format(mbs), FORMATTER.format(rollingAverage.getAverage()));
+            LOGGER.info("Speed: {}/s  (20 ma: {}/s)  Total: {}", humanReadableByteCountSI(mbs), humanReadableByteCountSI((long) rollingAverage.getAverage()), humanReadableByteCountSI(totalBytesUploaded.get()));
         }, 0, EVERY_SECONDS, TimeUnit.SECONDS);
     }
 
@@ -50,7 +51,8 @@ public class RollingAverageManager {
      *
      * @param bytes The amount of bytes added
      */
-    public void addBytes(double bytes) {
+    public void addBytes(long bytes) {
         bytesUploaded.addAndGet(bytes);
+        totalBytesUploaded.addAndGet(bytes);
     }
 }

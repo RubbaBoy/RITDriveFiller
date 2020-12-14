@@ -22,7 +22,7 @@ public class AccountRolloverStrategy extends FillStrategy {
     /**
      * Creates an AccountRolloverStrategy with a config and upload limit.
      *
-     * @param config The config
+     * @param config      The config
      * @param uploadLimit The amount of MB that can be uploaded before moving to a new account
      */
     protected AccountRolloverStrategy(Config config, int uploadLimit) {
@@ -38,59 +38,59 @@ public class AccountRolloverStrategy extends FillStrategy {
         var rollingAverageManager = new RollingAverageManager(10);
         rollingAverageManager.startDisplay();
 
-        while (true) {
-            for (int i = 0; i < count; i++) {
-                var user = config.getUsers().get(i);
+        for (int i = 0; i < count; i++) {
+            var user = config.getUsers().get(i);
 
-                if (accountName != null && !user.getName().equals(accountName)) {
+            if (accountName != null && !user.getName().equals(accountName)) {
+                continue;
+            }
+
+            var services = RITDriveFiller.createServices(user.getName(), user.getTokenPath());
+
+            try {
+                LOGGER.info("Starting user {}", user.getName());
+
+                var fillerOptional = create(user, services, rollingAverageManager);
+                if (fillerOptional.isEmpty()) {
                     continue;
                 }
 
-                var services = RITDriveFiller.createServices(user.getName(), user.getTokenPath());
+                var filler = fillerOptional.get();
+                var fileCount = (int) (uploadLimit / (long) filler.getFileSize());
+                LOGGER.info("Uploading {} files before moving onto the next account", fileCount);
+
+                var rateLimitTester = filler.getRateLimitTester();
+                rateLimitTester.disable();
+
+                var latchOptional = filler.fillIncrementally(fileCount, user.getDelay());
+
+                if (latchOptional.isEmpty()) {
+                    continue;
+                }
+
+                var latch = latchOptional.get();
+
+                var printed = new AtomicBoolean();
+                rateLimitTester.setRateLimitListener(() -> {
+                    if (!printed.getAndSet(true)) {
+                        LOGGER.info("Account {} has been rate limited, releasing its lock and continuing", user.getName());
+                    }
+
+                    latch.countDown();
+                });
 
                 try {
-                    LOGGER.info("Starting user {}", user.getName());
-
-                    var fillerOptional = create(user, services, rollingAverageManager);
-                    if (fillerOptional.isEmpty()) {
-                        continue;
-                    }
-
-                    var filler = fillerOptional.get();
-                    var fileCount = (int) (uploadLimit / (long) filler.getFileSize());
-                    LOGGER.info("Uploading {} files before moving onto the next account", fileCount);
-
-                    var rateLimitTester = filler.getRateLimitTester();
-                    rateLimitTester.disable();
-
-                    var latchOptional = filler.fillIncrementally(fileCount, user.getDelay());
-
-                    if (latchOptional.isEmpty()) {
-                        continue;
-                    }
-
-                    var latch = latchOptional.get();
-
-                    var printed = new AtomicBoolean();
-                    rateLimitTester.setRateLimitListener(() -> {
-                        if (!printed.getAndSet(true)) {
-                            LOGGER.info("Account {} has been rate limited, releasing its lock and continuing", user.getName());
-                        }
-
-                        latch.countDown();
-                    });
-
-                    try {
-                        latch.await();
-                    } catch (InterruptedException e) {
-                        LOGGER.error("An error occurred while waiting for incremental latch", e);
-                    }
-
-                    LOGGER.info("Lock has been released, moving onto a new account");
-                } catch (IOException e) {
-                    LOGGER.error("An error occurred while filling account '" + user.getName() + "'", e);
+                    latch.await();
+                } catch (InterruptedException e) {
+                    LOGGER.error("An error occurred while waiting for incremental latch", e);
                 }
+
+                LOGGER.info("Lock has been released, moving onto a new account");
+            } catch (IOException e) {
+                LOGGER.error("An error occurred while filling account '" + user.getName() + "'", e);
             }
         }
+
+        LOGGER.info("Used up all accounts");
     }
 }
